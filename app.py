@@ -1,7 +1,10 @@
 import os
 
 from cs50 import SQL
-from flask import Flask, flash, jsonify, redirect, render_template, request, session
+from flask import Flask, redirect, render_template, request
+
+
+from helpers import validate_data
 
 # Configure application
 app = Flask(__name__)
@@ -22,18 +25,66 @@ def after_request(response):
     return response
 
 
-@app.route("/", methods=["GET", "POST"])
+@app.route("/", methods=["GET", "POST", "PUT", "DELETE"])
 def index():
+    # User accesed via GET
+    if request.method == "GET":
+        bdays = db.execute("SELECT * FROM birthdays;")
+        return render_template("index.html", bdays=bdays)
+
+    # User is creating a new row
     if request.method == "POST":
 
-        # TODO: Add the user's entry into the database
+        # Validate provided information before creating in db
+        if (validate_data(request.form.get('name'),
+                        request.form.get('month'),
+                        request.form.get('day'))):
+
+            # Create in db
+            db.execute("""
+                INSERT INTO birthdays (name, month, day)
+                VALUES (?, ?, ?);""",
+                request.form.get('name'),
+                request.form.get('month'),
+                request.form.get('day'))
 
         return redirect("/")
 
-    else:
+    # User is updating info from a row
+    if request.method == "PUT":
 
-        # TODO: Display the entries in the database on index.html
+        # Validate provided information before creating in db
+        if (validate_data(request.form.get('name'),
+                        request.form.get('month'),
+                        request.form.get('day'))):
+                # Get which row the user is updating
+                id = int(request.form.get('id'))
 
-        return render_template("index.html")
+                # Update provided info in database
+                db.execute("""UPDATE birthdays
+                        SET name = ?, month = ?, day = ?
+                        WHERE id = ?;""",
+                        request.form.get('name'),
+                        request.form.get('month'),
+                        request.form.get('day'),
+                        id)
 
+                return redirect("/"), 200
 
+        else:
+                return redirect("/"), 400
+
+    # User is deleting a row
+    if request.method == "DELETE":
+        try:
+            # Get which row the user is deleting
+            id = int(request.form.get('id'))
+
+            # Delete row from database
+            db.execute("""DELETE FROM birthdays
+                    WHERE id = ?;""", id)
+
+        except:
+            return redirect("/"), 400
+
+        return redirect("/"), 200
